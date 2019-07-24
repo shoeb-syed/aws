@@ -1,10 +1,20 @@
 AWSTemplateFormatVersion : 2010-09-09
 Parameters:
-  BucketName:
+  bucketName:
     Type: String
+    Default: 'bucketnew-8'
+  scriptBucket:
+    Type: String
+    Default: 'new-bucket-1611'
+  lambdaZipPath:
+    Type: String
+    Default: 'lambda_functions.zip'
   glueScriptPath:
     Type: String
     Default: 's3://new-bucket-1611/glueJob.py'
+  staticCSVPath:
+    Type: String
+    Default: 's3://input-bucket-1611/names.csv'
   outputS3Bucket:
     Type: String
     Default: 'output-bucket-1611'
@@ -14,7 +24,7 @@ Resources:
     DependsOn:
       - ProcessingLambdaPermission
     Properties:
-      BucketName: !Ref BucketName
+      BucketName: !Ref bucketName
       NotificationConfiguration:
         LambdaConfigurations:
           - Event: s3:ObjectCreated:*
@@ -31,7 +41,7 @@ Resources:
       Action: 'lambda:InvokeFunction'
       FunctionName: !Ref ProcessingLambdaFunction
       Principal: s3.amazonaws.com
-      SourceArn: !Sub 'arn:aws:s3:::${BucketName}'
+      SourceArn: !Sub 'arn:aws:s3:::${bucketName}'
       SourceAccount: !Ref AWS::AccountId
 
   ProcessingLambdaExecutionRole:
@@ -63,7 +73,7 @@ Resources:
               Action:
               - s3:GetObject
               - s3:DeleteObject
-              Resource:  !Sub 'arn:aws:s3:::${BucketName}/*'
+              Resource:  !Sub 'arn:aws:s3:::${bucketName}/*'
         - PolicyName: glueTrigger
           PolicyDocument:
             Version: '2012-10-17'
@@ -77,24 +87,16 @@ Resources:
     Type: AWS::Lambda::Function
     Properties:
       Code:
-        ZipFile: |
-          import boto3
-          def handler(event, context):
-              bucket = event['Records'][0]['s3']['bucket']['name']
-              sourceKey = event['Records'][0]['s3']['object']['key']
-              client = boto3.client('glue')
-              client.start_job_run(
-                  JobName = 'cf-job4',
-                  Arguments = {
-                      "--bucket": bucket,
-                      "--path": sourceKey
-                  }
-              )
-      Handler: index.handler
+        S3Bucket: !Ref scriptBucket
+        S3Key: !Ref lambdaZipPath
+      Handler: lambda_functions.lambda_function.handler
       Role: !GetAtt ProcessingLambdaExecutionRole.Arn
       Runtime: python3.6
       MemorySize: 512
       Timeout: 120
+      Environment:
+        Variables:
+          GlueJobName: !Ref MyJob
 
   MyJobRole:
     Type: AWS::IAM::Role
@@ -132,10 +134,11 @@ Resources:
     Properties:
       Command:
         Name: glueetl
-        ScriptLocation: !Ref glueScriptPath
+        ScriptLocation: !Sub '${glueScriptPath}'
       DefaultArguments:
         "--job-bookmark-option": "job-bookmark-enable"
         "--outputBucket": !Ref outputS3Bucket
+        "--staticCSVPath": !Ref staticCSVPath
       ExecutionProperty:
         MaxConcurrentRuns: 2
       MaxRetries: 0
