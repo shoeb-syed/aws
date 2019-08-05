@@ -1,0 +1,123 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Template for tomcat server, version 0.2 - 2018-11-25
+Parameters:
+  InstanceTypeParam:
+    Type: String
+    Description: EC2 instance type for Server
+    Default: t2.micro
+  ImageIdParam:
+    Type: AWS::EC2::Image::Id
+    Description: AMI ID.
+    Default: 
+  KeyNameParam:
+    Type: AWS::EC2::KeyPair::KeyName
+    Description: SSH Key Pair.
+    Default: keyTest
+  VpcIdParam:
+    Type: AWS::EC2::VPC::Id
+    Description: VPC ID.
+  DnsRecordNameParam:
+    Type: String
+    Description: The DNS record name (e.g. example.com.)
+  DnsRecordTypeParam:
+    Type: String
+    Default: A
+    Description: The DNS record type (e.g. A)
+  HosedZoneIdParam:
+    Type: String
+    Description: The hosted zone ID for your domain name
+
+Resources:
+  DnsRecord:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      Comment: DNS record for ${DnsRecordNameParam} of ${AWS::StackName} (${AWS::Region})
+      Name: !Ref DnsRecordNameParam
+      Type: !Ref DnsRecordTypeParam
+      TTL: '60'
+      HostedZoneId: !Ref HosedZoneIdParam
+      ResourceRecords:
+        - !Ref ServerIp
+
+  ServerIp:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+      InstanceId: !Ref Server
+
+  Server:
+    Type: AWS::EC2::Instance
+    Metadata:
+      AWS::CloudFormation::Init:
+        config:
+          services:
+            sysvinit:
+              tomcat:
+                enabled: true
+                ensureRunning: true
+          packages:
+            yum:
+              java-1.8.0-openjdk: []
+              java-1.8.0-openjdk-devel: []
+              tomcat: []
+              tomcat-admin-webapps: []
+              tomcat-webapps: []
+              tomcat-docs-webapp: []
+    Properties:
+      ImageId: !Ref ImageIdParam
+      KeyName: !Ref KeyNameParam
+      InstanceType: !Ref InstanceTypeParam
+      SecurityGroupIds:
+        - !Ref PublicAccessSG
+      UserData:
+        Fn::Base64:
+          !Sub |
+            #!/bin/bash -xe
+
+            yum update -y
+            amazon-linux-extras install tomcat8.5
+            /opt/aws/bin/cfn-init   -v    --stack ${AWS::StackName} --resource Server --region ${AWS::Region}
+            /opt/aws/bin/cfn-signal -e $? --stack ${AWS::StackName} --resource Server --region ${AWS::Region}
+    CreationPolicy:
+      ResourceSignal:
+        Timeout: PT5M
+
+  PublicAccessSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub "${AWS::StackName}-PublicAccessSG"
+      GroupDescription: "Public Access"
+      VpcId: !Ref VpcIdParam
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 8080
+          ToPort: 8080
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 8443
+          ToPort: 8443
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: PublicAccessSG
