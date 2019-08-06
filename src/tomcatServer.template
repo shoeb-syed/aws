@@ -8,7 +8,7 @@ Parameters:
   ImageIdParam:
     Type: AWS::EC2::Image::Id
     Description: AMI ID.
-    Default: 
+    Default: ami-9c9443e3  #Amazon Linux AMI
   KeyNameParam:
     Type: AWS::EC2::KeyPair::KeyName
     Description: SSH Key Pair.
@@ -16,29 +16,8 @@ Parameters:
   VpcIdParam:
     Type: AWS::EC2::VPC::Id
     Description: VPC ID.
-  DnsRecordNameParam:
-    Type: String
-    Description: The DNS record name (e.g. example.com.)
-  DnsRecordTypeParam:
-    Type: String
-    Default: A
-    Description: The DNS record type (e.g. A)
-  HosedZoneIdParam:
-    Type: String
-    Description: The hosted zone ID for your domain name
 
 Resources:
-  DnsRecord:
-    Type: AWS::Route53::RecordSet
-    Properties:
-      Comment: DNS record for ${DnsRecordNameParam} of ${AWS::StackName} (${AWS::Region})
-      Name: !Ref DnsRecordNameParam
-      Type: !Ref DnsRecordTypeParam
-      TTL: '60'
-      HostedZoneId: !Ref HosedZoneIdParam
-      ResourceRecords:
-        - !Ref ServerIp
-
   ServerIp:
     Type: AWS::EC2::EIP
     Properties:
