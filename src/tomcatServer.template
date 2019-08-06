@@ -8,7 +8,7 @@ Parameters:
   ImageIdParam:
     Type: AWS::EC2::Image::Id
     Description: AMI ID.
-    Default: ami-9c9443e3  #Amazon Linux AMI
+    Default: ami-0f2176987ee50226e
   KeyNameParam:
     Type: AWS::EC2::KeyPair::KeyName
     Description: SSH Key Pair.
@@ -16,87 +16,42 @@ Parameters:
   VpcIdParam:
     Type: AWS::EC2::VPC::Id
     Description: VPC ID.
-
 Resources:
-  ServerIp:
-    Type: AWS::EC2::EIP
-    Properties:
-      Domain: vpc
-      InstanceId: !Ref Server
-
-  Server:
+  Ec2Instance:
     Type: AWS::EC2::Instance
-    Metadata:
-      AWS::CloudFormation::Init:
-        config:
-          services:
-            sysvinit:
-              tomcat:
-                enabled: true
-                ensureRunning: true
-          packages:
-            yum:
-              java-1.8.0-openjdk: []
-              java-1.8.0-openjdk-devel: []
-              tomcat: []
-              tomcat-admin-webapps: []
-              tomcat-webapps: []
-              tomcat-docs-webapp: []
     Properties:
+      InstanceType: !Ref InstanceTypeParam
       ImageId: !Ref ImageIdParam
       KeyName: !Ref KeyNameParam
-      InstanceType: !Ref InstanceTypeParam
-      SecurityGroupIds:
-        - !Ref PublicAccessSG
+      SecurityGroupIds: 
+        - !Ref myNewSecurityGroup
       UserData:
         Fn::Base64:
-          !Sub |
-            #!/bin/bash -xe
-
+          |
+            #!/bin/bash
             yum update -y
-            amazon-linux-extras install tomcat8.5
-            /opt/aws/bin/cfn-init   -v    --stack ${AWS::StackName} --resource Server --region ${AWS::Region}
-            /opt/aws/bin/cfn-signal -e $? --stack ${AWS::StackName} --resource Server --region ${AWS::Region}
-    CreationPolicy:
-      ResourceSignal:
-        Timeout: PT5M
-
-  PublicAccessSG:
+            yum install -y tomcat8
+            yum install -y tomcat8-webapps
+            cd /usr/share/tomcat8
+            aws s3 cp s3://tomcat.newrelic.artifacts/newrelic.zip newrelic.zip
+            aws s3 cp s3://tomcat.newrelic.artifacts/tomcat8.conf conf/tomcat8.conf
+            unzip newrelic.zip
+            chown -R tomcat:tomcat /usr/share/tomcat8/
+            service tomcat8 start
+            chkconfig --level 2345 tomcat8 on
+  myNewSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupName: !Sub "${AWS::StackName}-PublicAccessSG"
       GroupDescription: "Public Access"
       VpcId: !Ref VpcIdParam
       SecurityGroupIngress:
-        - IpProtocol: tcp
-          FromPort: 80
-          ToPort: 80
-          CidrIp: 0.0.0.0/0
-        - IpProtocol: tcp
-          FromPort: 8080
-          ToPort: 8080
-          CidrIp: 0.0.0.0/0
-        - IpProtocol: tcp
-          FromPort: 443
-          ToPort: 443
-          CidrIp: 0.0.0.0/0
-        - IpProtocol: tcp
-          FromPort: 8443
-          ToPort: 8443
-          CidrIp: 0.0.0.0/0
-        - IpProtocol: tcp
-          FromPort: 22
-          ToPort: 22
-          CidrIp: 0.0.0.0/0
-      SecurityGroupEgress:
-        - IpProtocol: tcp
-          FromPort: 80
-          ToPort: 80
-          CidrIp: 0.0.0.0/0
-        - IpProtocol: tcp
-          FromPort: 443
-          ToPort: 443
-          CidrIp: 0.0.0.0/0
-      Tags:
-        - Key: Name
-          Value: PublicAccessSG
+       - IpProtocol: tcp
+         FromPort: '22'
+         ToPort: '22'
+         CidrIp: 0.0.0.0/0
+
+       - IpProtocol: tcp
+         FromPort: '8080'
+         ToPort: '8080'
+         CidrIp: 0.0.0.0/0
