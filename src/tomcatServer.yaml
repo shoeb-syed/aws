@@ -4,15 +4,12 @@ Parameters:
   InstanceTypeParam:
     Type: String
     Description: EC2 instance type for Server
-    Default: t2.micro
   ImageIdParam:
     Type: AWS::EC2::Image::Id
     Description: AMI ID.
-    Default: ami-0f2176987ee50226e
   KeyNameParam:
     Type: AWS::EC2::KeyPair::KeyName
-    Description: SSH Key Pair.
-    Default: keyTest
+    Description: SSH Key Pair
   VpcIdParam:
     Type: AWS::EC2::VPC::Id
     Description: VPC ID.
