@@ -2,22 +2,16 @@ AWSTemplateFormatVersion : 2010-09-09
 Parameters:
   bucketName:
     Type: String
-    Default: 'bucketnew-8'
   scriptBucket:
     Type: String
-    Default: 'new-bucket-1611'
   lambdaZipPath:
     Type: String
-    Default: 'lambda_functions.zip'
   glueScriptPath:
     Type: String
-    Default: 's3://new-bucket-1611/glueJob.py'
   staticCSVPath:
     Type: String
-    Default: 's3://input-bucket-1611/names.csv'
   outputS3Bucket:
     Type: String
-    Default: 'output-bucket-1611'
 Resources:
   Bucket:
     Type: AWS::S3::Bucket
